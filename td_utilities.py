@@ -34,20 +34,32 @@ try:
 
         return new_group
 
-    def duplicate_layer(image, layer, new_layer_name, group):
-        new_layer = layer.copy()
-        new_layer.name = new_layer_name
-        pdb.gimp_item_set_visible(new_layer, True)
+    def create_temp_layer(image, orig_layer, temp_layer_name, group, all_temps=None):
+        temp_layer = orig_layer.copy()
+        temp_layer.name = temp_layer_name
+        pdb.gimp_item_set_visible(temp_layer, True)
 
-        prev_temp = pdb.gimp_image_get_layer_by_name(image, new_layer_name)
+        prev_temp = pdb.gimp_image_get_layer_by_name(image, temp_layer_name)
         if prev_temp is not None:
             prev_position = pdb.gimp_image_get_item_position(image, prev_temp)
             image.remove_layer(prev_temp)
-            image.insert_layer(new_layer, group, prev_position)
-        else:
-            image.insert_layer(new_layer, group)
+            image.insert_layer(temp_layer, group, prev_position)
+        elif len(group.layers) > 0:
+            index = 0
 
-        return new_layer
+            for i, layer in enumerate(group.layers):
+                layer_name_parsed = parse_layer_name(layer.name)
+                if "top" in layer_name_parsed["args"].keys():
+                    index = i + 1
+
+            image.insert_layer(temp_layer, group, index)
+        else:
+            image.insert_layer(temp_layer, group)
+
+        if all_temps is not None:
+            all_temps.append(temp_layer)
+
+        return temp_layer
 
     def parse_layer_name(layer_name):
         words = layer_name.split()

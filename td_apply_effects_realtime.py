@@ -3,6 +3,7 @@
 
 # TODO:
 # - reorder FINAL group
+# - process folders
 
 # INTERESTING:
 # freeze layers
@@ -42,7 +43,7 @@ try:
     def effect(layer):
         global temp_group
 
-        blur_layer = duplicate_layer(image, layer, "_temp " + layer.name, temp_group)
+        blur_layer = create_temp_layer(image, layer, "_temp " + layer.name, temp_group)
         blur_layer.translate(100, 0)
 
         # Add blur
@@ -51,7 +52,7 @@ try:
         pdb.gimp_layer_add_mask(blur_layer, mask)
         pdb.plug_in_sel_gauss(image, blur_layer, 1.5, 255)
 
-        edges_layer = duplicate_layer(image, layer, "_temp " + layer.name, temp_group)
+        edges_layer = create_temp_layer(image, layer, "_temp " + layer.name, temp_group)
         edges_layer.translate(100, 0)
 
         # Add edges

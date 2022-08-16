@@ -4,6 +4,8 @@
 # TODO:
 # - reorder FINAL group
 # - save order
+# - process folders
+# - fix remove_unused_temp_layers
 
 # INTERESTING:
 # freeze layers
@@ -19,6 +21,7 @@ try:
     import gimpcolor
 
     def remove_unused_temp_layers(items):
+        global created_temps
 
         # Save temp layers positions
         # for item in items:
@@ -32,15 +35,11 @@ try:
         for item in items:
             if type(item) == gimp.Layer:
                 layer_name_parsed = parse_layer_name(item.name)
-                if "temp" in layer_name_parsed["args"].keys():
-                    orig_layer_name = layer_name_parsed["name"]
-
-                    orig_layer = pdb.gimp_image_get_layer_by_name(
-                        image, orig_layer_name
-                    )
-
-                    if orig_layer is None:
-                        image.remove_layer(item)
+                if (
+                    item not in created_temps
+                    and "temp" in layer_name_parsed["args"].keys()
+                ):
+                    image.remove_layer(item)
             else:
                 remove_unused_temp_layers(item.layers)
 
@@ -57,11 +56,12 @@ try:
                 process_layers(item.layers)
 
     def effect(layer):
-        global final_group
+        global final_group, created_temps
 
-        blur_layer = duplicate_layer(
-            image, layer, layer.name + " _temp blur", final_group
+        blur_layer = create_temp_layer(
+            image, layer, layer.name + " _temp blur", final_group, created_temps
         )
+
         blur_layer.translate(100, 0)
 
         # Add blur
@@ -70,9 +70,10 @@ try:
         pdb.gimp_layer_add_mask(blur_layer, mask)
         pdb.plug_in_sel_gauss(image, blur_layer, 1.5, 255)
 
-        edges_layer = duplicate_layer(
-            image, layer, layer.name + " _temp edges", final_group
+        edges_layer = create_temp_layer(
+            image, layer, layer.name + " _temp edges", final_group, created_temps
         )
+
         edges_layer.translate(100, 0)
 
         # Add edges
@@ -84,10 +85,13 @@ try:
     image = None
     drawable = None
     final_group = None
+    created_temps = []
 
     @save_state
     def td_apply_effects(img, dbl):
-        global image, drawable, final_group, temps
+        global image, drawable, final_group, created_temps
+
+        created_temps = []
 
         image = img
         drawable = dbl
@@ -97,9 +101,8 @@ try:
         final_group = get_group(image, "FINAL")
         raw_group = get_group(image, "RAW")
 
-        remove_unused_temp_layers(final_group.layers)
-
         process_layers(raw_group.layers)
+        remove_unused_temp_layers(final_group.layers)
 
         pdb.gimp_image_thaw_layers(image)
         pdb.gimp_item_set_expanded(final_group, False)

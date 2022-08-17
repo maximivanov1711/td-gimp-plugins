@@ -2,6 +2,10 @@
 # -*- coding: utf-8 -*-
 
 
+# TODO
+# - fix symmetry undo
+
+
 try:
     import sys
 
@@ -11,6 +15,8 @@ try:
     from gimpfu import *
 
     def flip_layer(image, drawable, layer, symmetry_type, axis):
+        gimp.message("1s")
+
         if symmetry_type == 0:
             pdb.gimp_image_select_rectangle(
                 image, 2, axis + 1, 0, image.height, image.width
@@ -20,10 +26,15 @@ try:
                 image, 2, 0, axis + 1, image.height, image.width
             )
 
+        gimp.message("2s")
+
         pdb.gimp_edit_clear(drawable)
         pdb.gimp_selection_none(image)
 
+        gimp.message("3s")
+
         real_buffer_name = pdb.gimp_edit_named_copy(layer, "symmetry")
+
         floating = pdb.gimp_edit_named_paste(layer, real_buffer_name, True)
 
         # flip selection
@@ -51,26 +62,33 @@ try:
         layer_name_parsed = parse_layer_name(symmetry_layers[0].name)
         gimp.message("parsed: " + str(layer_name_parsed))
 
-        funcs = layer_name_parsed["functions"]
-        if "h" in funcs.keys():
+        args = layer_name_parsed["args"]
+
+        pdb.gimp_image_undo_thaw(image)
+        pdb.gimp_image_undo_group_start(image)
+
+        if "h" in args.keys():
             # apply horizontal symmetry
             flip_layer(
                 image=image,
                 drawable=drawable,
                 layer=active_layer,
                 symmetry_type=0,
-                axis=float(funcs["h"][0]),
+                axis=float(args["h"][0]),
             )
 
-        if "v" in funcs.keys():
+        if "v" in args.keys():
             # apply vertical symmetry
             flip_layer(
                 image=image,
                 drawable=drawable,
                 layer=active_layer,
                 symmetry_type=1,
-                axis=float(funcs["v"][0]),
+                axis=float(args["v"][0]),
             )
+
+        pdb.gimp_image_undo_group_end(image)
+        pdb.gimp_image_undo_freeze(image)
 
     # Регистрируем функцию в PDB
     register(

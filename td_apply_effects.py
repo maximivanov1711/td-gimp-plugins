@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# TODO:
-# - reorder FINAL group
-# - save order
-# - process folders
-# - fix remove_unused_temp_layers
-
 # INTERESTING:
 # freeze layers
 # flatten = remove alpha
+
+# TODO:
+# - fix effects outside subgroups in RAW group
+# - ? thaw layers in save_state
+
 
 try:
     import sys
@@ -23,27 +22,18 @@ try:
     def remove_unused_temp_layers(items):
         global created_temps
 
-        # Save temp layers positions
-        # for item in items:
-        #     if type(item) == gimp.Layer:
-        #         layer_prefix = item.name.split()[0]
-        #         if layer_prefix == "_temp":
-        #             prev_position = pdb.gimp_image_get_item_position(image, item)
-        #             temps[item.name] = int(prev_position)
-
         # Remove temp layers
         for item in items:
-            if type(item) == gimp.Layer:
-                layer_name_parsed = parse_layer_name(item.name)
-                if (
-                    item not in created_temps
-                    and "temp" in layer_name_parsed["args"].keys()
-                ):
+            layer_name_parsed = parse_layer_name(item.name)
+            if item not in created_temps:
+                if "temp" in layer_name_parsed["args"].keys():
                     image.remove_layer(item)
-            else:
+            elif type(item) == gimp.GroupLayer:
                 remove_unused_temp_layers(item.layers)
 
     def process_layers(items):
+        global image, created_temps
+
         items.reverse()
 
         for item in items:
@@ -53,16 +43,43 @@ try:
                     if arg_name == "e":
                         effect(item)
             else:
+                # Create subfolder in item parent group
+                parent_group = pdb.gimp_item_get_parent(item)
+                if parent_group.name == "RAW":
+                    temp_parent_group = pdb.gimp_image_get_layer_by_name(image, "FINAL")
+                else:
+                    temp_parent_group = pdb.gimp_image_get_layer_by_name(
+                        image, parent_group.name + " _temp"
+                    )
+
+                temp_group = pdb.gimp_image_get_layer_by_name(
+                    image, item.name + " _temp"
+                )
+                if temp_group is None:
+                    temp_group = pdb.gimp_layer_group_new(image)
+                    temp_group.name = item.name + " _temp"
+                    pdb.gimp_image_insert_layer(image, temp_group, temp_parent_group, 0)
+
+                created_temps.append(temp_group)
+
                 process_layers(item.layers)
 
     def effect(layer):
-        global final_group, created_temps
+        global created_temps
 
-        blur_layer = create_temp_layer(
-            image, layer, layer.name + " _temp blur", final_group, created_temps
+        # Get temp group
+        parent_group = pdb.gimp_item_get_parent(layer)
+        temp_group = pdb.gimp_image_get_layer_by_name(
+            image, parent_group.name + " _temp"
         )
 
-        blur_layer.translate(100, 0)
+        gimp.message("temp_group: " + str(temp_group))
+
+        blur_layer = create_temp_layer(
+            image, layer, layer.name + " _temp blur", temp_group, created_temps
+        )
+
+        gimp.message("blur_layer: " + str(blur_layer))
 
         # Add blur
         pdb.gimp_layer_resize_to_image_size(blur_layer)
@@ -70,17 +87,18 @@ try:
         pdb.gimp_layer_add_mask(blur_layer, mask)
         pdb.plug_in_sel_gauss(image, blur_layer, 1.5, 255)
 
-        edges_layer = create_temp_layer(
-            image, layer, layer.name + " _temp edges", final_group, created_temps
-        )
+        gimp.message("after gauss")
 
-        edges_layer.translate(100, 0)
+        edges_layer = create_temp_layer(
+            image, layer, layer.name + " _temp edges", temp_group, created_temps
+        )
 
         # Add edges
         pdb.gimp_image_select_color(image, 2, edges_layer, gimpcolor.RGB(0, 0, 0))
         mask = pdb.gimp_layer_create_mask(edges_layer, 4)
         pdb.gimp_layer_add_mask(edges_layer, mask)
         pdb.gimp_layer_set_opacity(edges_layer, 50)
+        pdb.gimp_selection_clear(image)
 
     image = None
     drawable = None
@@ -96,6 +114,9 @@ try:
         image = img
         drawable = dbl
 
+        pdb.gimp_image_undo_thaw(image)
+        pdb.gimp_image_undo_group_start(image)
+
         pdb.gimp_image_freeze_layers(image)
 
         final_group = get_group(image, "FINAL")
@@ -105,7 +126,12 @@ try:
         remove_unused_temp_layers(final_group.layers)
 
         pdb.gimp_image_thaw_layers(image)
+
         pdb.gimp_item_set_expanded(final_group, False)
+        pdb.gimp_item_set_visible(final_group, True)
+
+        pdb.gimp_image_undo_group_end(image)
+        pdb.gimp_image_undo_freeze(image)
 
     # Регистрируем функцию в PDB
     register(

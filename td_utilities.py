@@ -30,7 +30,7 @@ try:
         if new_group is None:
             new_group = pdb.gimp_layer_group_new(image)
             new_group.name = group_name
-            image.add_layer(new_group)
+            pdb.gimp_image_insert_layer(image, new_group, None, 0)
 
         return new_group
 

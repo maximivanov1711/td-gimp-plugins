@@ -38,10 +38,7 @@ try:
 
         for item in items:
             if type(item) == gimp.Layer:
-                layer_name_parsed = parse_layer_name(item.name)
-                for arg_name in layer_name_parsed["args"].keys():
-                    if arg_name == "e":
-                        effect(item)
+                effect(item)
             else:
                 # Create subfolder in item parent group
                 parent_group = pdb.gimp_item_get_parent(item)
@@ -73,21 +70,15 @@ try:
             image, parent_group.name + " _temp"
         )
 
-        gimp.message("temp_group: " + str(temp_group))
-
         blur_layer = create_temp_layer(
             image, layer, layer.name + " _temp blur", temp_group, created_temps
         )
-
-        gimp.message("blur_layer: " + str(blur_layer))
 
         # Add blur
         pdb.gimp_layer_resize_to_image_size(blur_layer)
         mask = pdb.gimp_layer_create_mask(blur_layer, 2)
         pdb.gimp_layer_add_mask(blur_layer, mask)
         pdb.plug_in_sel_gauss(image, blur_layer, 1.5, 255)
-
-        gimp.message("after gauss")
 
         edges_layer = create_temp_layer(
             image, layer, layer.name + " _temp edges", temp_group, created_temps
@@ -114,10 +105,7 @@ try:
         image = img
         drawable = dbl
 
-        pdb.gimp_image_undo_thaw(image)
-        pdb.gimp_image_undo_group_start(image)
-
-        pdb.gimp_image_freeze_layers(image)
+        # pdb.gimp_image_freeze_layers(image)
 
         final_group = get_group(image, "FINAL")
         raw_group = get_group(image, "RAW")
@@ -125,13 +113,14 @@ try:
         process_layers(raw_group.layers)
         remove_unused_temp_layers(final_group.layers)
 
-        pdb.gimp_image_thaw_layers(image)
-
         pdb.gimp_item_set_expanded(final_group, False)
-        pdb.gimp_item_set_visible(final_group, True)
 
         pdb.gimp_image_undo_group_end(image)
-        pdb.gimp_image_undo_freeze(image)
+        pdb.gimp_image_undo_group_start(image)
+
+        pdb.gimp_item_set_visible(final_group, True)
+
+        # pdb.gimp_image_thaw_layers(image)
 
     # Регистрируем функцию в PDB
     register(

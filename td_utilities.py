@@ -6,18 +6,21 @@ try:
 
     def save_state(func):
         def wrapper(image, drawable):
-            prev_active_layer = image.active_layer
-            pdb.gimp_image_undo_freeze(image)
-            prev_selection = pdb.gimp_selection_save(image)
+            pdb.gimp_image_undo_group_start(image)
 
+            pdb.gimp_image_freeze_layers(image)
+
+            prev_active_layer = image.active_layer
+            prev_selection = pdb.gimp_selection_save(image)
             image.active_layer = prev_active_layer
 
             res = func(image, drawable)
 
             image.active_layer = prev_active_layer
-
             pdb.gimp_selection_load(prev_selection)
-            pdb.gimp_image_undo_thaw(image)
+            pdb.gimp_image_undo_group_end(image)
+
+            pdb.gimp_image_thaw_layers(image)
 
             gimp.displays_flush()
 
@@ -31,6 +34,16 @@ try:
             new_group = pdb.gimp_layer_group_new(image)
             new_group.name = group_name
             pdb.gimp_image_insert_layer(image, new_group, None, 0)
+
+        return new_group
+
+    def get_group_in_parent(image, group_name, parent_group_name):
+        new_group = pdb.gimp_image_get_layer_by_name(image, group_name)
+        if new_group is None:
+            new_group = pdb.gimp_layer_group_new(image)
+            new_group.name = group_name
+            parent_group = pdb.gimp_image_get_layer_by_name(image, parent_group_name)
+            pdb.gimp_image_insert_layer(image, new_group, parent_group, 0)
 
         return new_group
 

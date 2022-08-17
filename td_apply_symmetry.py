@@ -64,9 +64,6 @@ try:
 
         args = layer_name_parsed["args"]
 
-        pdb.gimp_image_undo_thaw(image)
-        pdb.gimp_image_undo_group_start(image)
-
         if "h" in args.keys():
             # apply horizontal symmetry
             flip_layer(
@@ -86,9 +83,6 @@ try:
                 symmetry_type=1,
                 axis=float(args["v"][0]),
             )
-
-        pdb.gimp_image_undo_group_end(image)
-        pdb.gimp_image_undo_freeze(image)
 
     # Регистрируем функцию в PDB
     register(

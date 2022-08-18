@@ -3,7 +3,8 @@
 
 
 # TODO:
-# - create mask on full sprite
+# - * fix grayscale
+# - fix top layers in FINAL
 
 try:
     import sys
@@ -62,7 +63,11 @@ try:
                         image, layer_name_parsed["args"]["m"][0] + " _mask", "MASKS"
                     )
 
-                    create_temp_layer(image, item, item.name + " _mask", mask_group)
+                    mask_layer = create_temp_layer(
+                        image, item, item.name + " _mask", mask_group
+                    )
+                    pdb.gimp_layer_set_mode(mask_layer, 0)
+
             else:
                 fill_mask_groups(image, item.layers, masks_folder)
 
@@ -101,18 +106,25 @@ try:
 
                 pdb.gimp_layer_remove_mask(mask_layer, 1)
 
-        grayscale_group = pdb.gimp_image_get_layer_by_name(image, "FINAL").copy()
+        grayscale_group = pdb.gimp_image_get_layer_by_name(image, "COPIES").copy()
         grayscale_group.name = "GRAYSCALE"
         pdb.gimp_image_insert_layer(image, grayscale_group, masks_group, 0)
         grayscale_layer = pdb.gimp_image_merge_layer_group(image, grayscale_group)
         pdb.gimp_drawable_desaturate(grayscale_layer, 2)
+        pdb.gimp_layer_resize_to_image_size(grayscale_layer)
 
     def export(image):
         # Export masks
-        save_dir = (
-            os.path.dirname(pdb.gimp_image_get_uri(image)).replace("file:///", "") + "/"
-        )
         file_name = os.path.splitext(image.name)[0]
+
+        save_dir = (
+            os.path.dirname(pdb.gimp_image_get_uri(image)).replace("file:///", "")
+            + "/"
+            + file_name
+            + "_export/"
+        )
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
 
         masks_group = get_group(image, "MASKS")
         for mask_layer in masks_group.layers:
@@ -126,7 +138,6 @@ try:
 
         # Export Final + COPIES
         save_path = save_dir + file_name + ".png"
-        # pdb.file_png_save_defaults(image, None, save_path, save_path)
 
         new_image = pdb.gimp_image_duplicate(image)
         layer = pdb.gimp_image_merge_visible_layers(new_image, CLIP_TO_IMAGE)

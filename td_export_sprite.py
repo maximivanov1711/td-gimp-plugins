@@ -106,6 +106,8 @@ try:
 
                 pdb.gimp_layer_remove_mask(mask_layer, 1)
 
+                pdb.gimp_layer_resize_to_image_size(mask_layer)
+
         grayscale_group = pdb.gimp_image_get_layer_by_name(image, "COPIES").copy()
         grayscale_group.name = "GRAYSCALE"
         pdb.gimp_image_insert_layer(image, grayscale_group, masks_group, 0)
@@ -141,6 +143,7 @@ try:
 
         new_image = pdb.gimp_image_duplicate(image)
         layer = pdb.gimp_image_merge_visible_layers(new_image, CLIP_TO_IMAGE)
+        pdb.gimp_layer_resize_to_image_size(layer)
         pdb.file_png_save_defaults(new_image, layer, save_path, save_path)
         pdb.gimp_image_delete(new_image)
 

@@ -38,7 +38,11 @@ try:
 
         for item in items:
             if type(item) == gimp.Layer:
-                effect(item)
+                layer_name_parsed = parse_layer_name(item.name)
+                if "e" in layer_name_parsed["args"].keys():
+                    effect(item, layer_name_parsed["args"]["e"][0])
+                else:
+                    effect(item, 2)
             else:
                 # Create subfolder in item parent group
                 parent_group = pdb.gimp_item_get_parent(item)
@@ -61,7 +65,7 @@ try:
 
                 process_layers(item.layers)
 
-    def effect(layer):
+    def effect(layer, arg1):
         global created_temps
 
         # Get temp group
@@ -78,7 +82,7 @@ try:
         pdb.gimp_layer_resize_to_image_size(blur_layer)
         mask = pdb.gimp_layer_create_mask(blur_layer, 2)
         pdb.gimp_layer_add_mask(blur_layer, mask)
-        pdb.plug_in_sel_gauss(image, blur_layer, 1.5, 255)
+        pdb.plug_in_sel_gauss(image, blur_layer, arg1, 255)
 
         edges_layer = create_temp_layer(
             image, layer, layer.name + " _temp edges", temp_group, created_temps
@@ -105,8 +109,6 @@ try:
         image = img
         drawable = dbl
 
-        # pdb.gimp_image_freeze_layers(image)
-
         final_group = get_group(image, "FINAL")
         raw_group = get_group(image, "RAW")
 
@@ -119,8 +121,6 @@ try:
         pdb.gimp_image_undo_group_start(image)
 
         pdb.gimp_item_set_visible(final_group, True)
-
-        # pdb.gimp_image_thaw_layers(image)
 
     # Регистрируем функцию в PDB
     register(
